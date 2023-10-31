@@ -1,0 +1,172 @@
+module Decoder (
+	//TODO: Write input and output parameters
+	input [1:0] op,
+	input [5:0] funct,
+	output reg MemtoReg,
+	output reg ALUSrc,
+	output reg [1:0] ImmSrc,
+	output reg [1:0] RegSrc,
+	output reg [3:0] ALUOp,
+	output reg Svalue
+	);
+	
+	always @(*)
+	//TODO: Write code for decoder
+	/* 
+	(1) Data processing instruction 
+	(2) Load, Store instruction
+	(3) Branch instruction
+	*/	
+	
+    /* 
+	-----------------------------------
+	   Data processing (Page 10/60  in arm_inst_set_manual2.pdf)
+	   funct[5]:Immediate Operand.        0 = source operand is a register.  1 = Unsigned 8 bit immediate value
+	   funct[0]:Set condition codes.      0 = do not alter condition codes.  1 = set condition codes.
+	
+        (From slides. Single-Cycle ARM Processor Design 2nd Term Project Single-cycle Processor)
+		RegSrc[0] = ¡°0¡± : ADD, SUB, CMP, MOV, LDR, STR
+			Using Register[inst(19:16)]
+		RegSrc[0] = ¡°1¡± : B, BL
+			Using Register[15] for calculating branch target address
+		
+	-----------------------------------
+	   LDR/STR (Page 26/60  in arm_inst_set_manual2.pdf)
+	   funct[5]:Immediate Operand.   0 = offset is an immediate value. Unsigned 12 bit immediate offset
+	   funct[3]:Up/Down bit.         0 = down; subtract offset from base.   1 = up; add offset to base. 
+	   
+	   funct[0]:Load/Store bit.      0 = Store to memory. 1 = Load from memory.
+				Svalue is the bit which is used for distinguishing LDR and STR instruction. 
+	-----------------------------------
+	   BL (Page 8/60  in arm_inst_set_manual2.pdf)
+	   2¡¯s complement 24 bit offset
+	*/
+	begin
+		case (op)
+		2'b00: begin // Data processing instruction
+			MemtoReg = 1'b0;
+			ALUOp = funct[4:1];
+			Svalue = funct[0];
+			ImmSrc = 2'b00; // Unsigned 8 bit immediate value
+			ALUSrc = funct[5];	
+			RegSrc = 2'b00; 
+		end
+		2'b01: begin  // Load, Store instruction
+			MemtoReg = funct[0];
+			ALUOp = funct[3] ? 4'b0100 : 4'b0010; // add/sub
+			//Svalue = funct[0];
+			Svalue = 1'b0;			
+			ImmSrc = 2'b01; // Unsigned 12 bit immediate offset	offset 
+			ALUSrc = ~funct[5];
+			RegSrc = 2'b00;
+		end
+		2'b10: begin  // Branch instruction
+			MemtoReg = 1'b0;
+			ALUOp = 4'b0100;
+			Svalue = 1'b0;
+			ImmSrc = 2'b10; // 2¡¯s complement 24 bit offset
+			ALUSrc = 1'b1;			
+			RegSrc = 2'b01;
+		end
+		default: begin
+			MemtoReg = 1'b0;
+			ALUOp = 4'b0100;
+			Svalue = 1'b0;
+			ImmSrc = 2'b00;
+			ALUSrc = 1'b0;			
+			RegSrc = 2'b00;		
+		end		
+		endcase
+	end
+	
+endmodule
+
+module ConditionalLogic (
+	//TODO: Write input and output parameters
+	input [1:0] op,	
+	input [5:0] funct,	
+	input [3:0] cond,
+	input Zero,
+	output reg PCSrc,
+	output reg RegWrite,
+	output reg MemWrite
+	);
+
+	//TODO: Write code for the three cases like below
+	/* 
+	(1) Data processing instruction 
+	(2) Load, Store instruction
+	(3) Branch instruction
+	*/	
+	reg cond_true;
+	always @(*)
+	begin
+		case(cond)
+		4'b0000: cond_true = Zero;
+		4'b0001: cond_true = ~Zero;
+		4'b1110: cond_true = 1'b1;
+		default: cond_true = 1'b0;
+		endcase
+	end
+	
+	always @(*)
+	begin
+		case(op)
+		2'b00: begin // Data processing instruction 
+			PCSrc = 1'b0;
+			MemWrite = 1'b0;
+			RegWrite = cond_true & (funct[4:1] != 4'b1010); // Except CMP
+		end
+		2'b01: begin  // Load, Store instruction
+			PCSrc = 1'b0;
+			RegWrite = cond_true & funct[0]; // Load.
+			MemWrite = cond_true & (~funct[0]); // Store.
+		end
+		2'b10: begin  // Branch instruction
+			PCSrc = cond_true;
+			RegWrite = 1'b0;
+			MemWrite = 1'b0;
+		end
+		default: begin
+			PCSrc = 1'b0;
+			RegWrite = 1'b0;
+			MemWrite = 1'b0;		
+		end
+		endcase
+	end	
+	
+endmodule
+
+module ControlUnit(
+	input[3:0] NZCV,
+	input[3:0] cond,
+	input[1:0] op,
+	input[5:0] funct,
+	output[3:0] ALUOp,
+	output[1:0] ImmSrc,
+	output[1:0] RegSrc,
+	output PCSrc,
+	output RegWrite,
+	output MemWrite,
+	output MemtoReg,
+	output ALUSrc,
+	output Svalue
+	);
+	Decoder _decoder(
+		.op			(op),
+		.funct		(funct),
+		.MemtoReg	(MemtoReg),
+		.ALUSrc		(ALUSrc),
+		.ImmSrc		(ImmSrc),
+		.RegSrc		(RegSrc),
+		.ALUOp 		(ALUOp),
+		.Svalue		(Svalue));
+	ConditionalLogic _conditional(
+		.op			(op),
+		.funct		(funct),
+		.cond		(cond),
+		.Zero		(NZCV[2]),
+		.PCSrc		(PCSrc),
+		.RegWrite	(RegWrite),
+		.MemWrite	(MemWrite));
+endmodule
