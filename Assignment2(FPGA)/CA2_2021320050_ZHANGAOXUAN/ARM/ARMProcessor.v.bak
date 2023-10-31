@@ -1,0 +1,39 @@
+module armreduced(
+	input clk,
+	input reset,
+	output[31:0] pc,
+	input[31:0] inst,
+	input nIRQ,
+	output[3:0] be,
+	output[31:0] memaddr,
+	output memwrite,
+	output memread,
+	output[31:0] writedata,
+	input[31:0] readdata
+	);
+	
+	assign pc = pctmp;
+	assign be = 4'b1111; // default
+	assign memread = 'b1; // default
+	reg[3:0] = NZCV;
+	
+	//TODO: Wire setting
+	
+	//TODO: Assign values to variables 
+	assign /*Variable*/ = /*Value*/
+	
+	
+	ControlUnit _ControlUnit(
+			.NZCV(NZCV), .cond(inst[31:28]), .op(inst[27:26]), .funct(inst[25:20]), .ALUOp(ALUOp), .ImmSrc(ImmSrc), .RegSrc(RegSrc),  
+			.PCSrc(PCSrc), .RegWrite(RegWrite), .MemWrite(MemWrite), .MemtoReg(MemtoReg), .ALUSrc(ALUSrc), .Svalue(Svalue));
+	
+	RegisterFile _RegisterFile( .clk(clk), .reset(reset), .we(RegWrite), .RegSrc(RegSrc), .addr1(ReadAddr1), .addr2(ReadAddr2), .addr3(WriteAddr),
+								.waddr(WriteAddr), .wdata(Result), .pcin(NextPC), .data1(ReadData1), .data2(ReadData2), .data3(ReadData3), .pcout(pctmp));
+										
+	Extend _Extend( .in(inst[23:0]), .ImmSrc(ImmSrc), .ExtImm(ExtImm) );
+	
+	ALU _ALU( .SrcA(ReadData1), .SrcB(SrcB), .ALUOp(ALUOp), .ALUFlags(ALUFlags), .ALUResult(ALUResult) ); //ALU32bit
+
+	//TODO: NZCV value will be different whether the reset button is on or off
+
+endmodule
